@@ -3,3 +3,4 @@ pydantic==1.8.2
 altair==4.1.0
 streamlit==0.89.0
 deta==1.0.0
+plotly==5.3.1
