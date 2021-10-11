@@ -1,7 +1,11 @@
 from datetime import datetime
+from typing import Sequence
 
+import pandas as pd
+import plotly.express as px
 import streamlit as st
 from deta import Deta, _Base
+from pydantic import parse_obj_as
 
 from .entry import Entry, EntryType
 
@@ -19,29 +23,49 @@ def upload_entry(base: _Base, entry: Entry) -> None:
     streamlit.legacy_caching.clear_cache()
 
 
+@st.cache(hash_funcs={_Base: lambda base: base.base_path})
+def load_db(base: _Base) -> Sequence[Entry]:
+    return parse_obj_as(Sequence[Entry], base.fetch().items)
+
+
 def main() -> None:
 
     mode: EntryType = st.radio(
-        "Mode", EntryType, format_func=lambda mode: mode.value.capitalize()
+        "Mode", list(EntryType), format_func=lambda mode: mode.value.capitalize()
     )
 
-    base = deta.Base(mode.value)
+    with st.expander("New entry"):
 
-    column1, column2 = st.columns([1, 1])
+        base = deta.Base(mode.value)
 
-    value = st.number_input("Value")
-    with column1:
-        date = st.date_input("Date")
-    with column2:
-        time = st.time_input("Time")
-    comment = st.text_input("Comments")
+        column1, column2 = st.columns([1, 1])
 
-    datetime_object = datetime.combine(date, time)
+        value = st.number_input("Value")
+        with column1:
+            date = st.date_input("Date")
+        with column2:
+            time = st.time_input("Time")
+        comment = st.text_input("Comments")
 
-    st.write(mode)
+        datetime_object = datetime.combine(date, time)
 
-    entry = Entry(
-        value=value, datetime=datetime_object, comment=comment, type=mode.value
-    )
+        entry = Entry(
+            value=value, datetime=datetime_object, comment=comment, type=mode.value
+        )
 
-    st.button("Upload entry", on_click=upload_entry, args=(base, entry))
+        st.button("Upload entry", on_click=upload_entry, args=(base, entry))
+
+    data = load_db(base)
+    data_df = pd.DataFrame([entry.dict() for entry in data])[
+        ["value", "datetime", "comment"]
+    ]
+    data_df["date"] = data_df["datetime"].dt.date
+
+    plot_type = px.line if mode == EntryType.weight else px.bar
+
+    fig = plot_type(data_df, x="date", y="value", text="comment")
+    fig.update_xaxes(rangeslider_visible=True)
+
+    st.plotly_chart(fig)
+
+    st.write(data_df)

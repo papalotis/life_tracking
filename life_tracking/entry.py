@@ -4,11 +4,10 @@ from hashlib import sha1
 from typing import Any, Mapping, Optional
 
 from pydantic import BaseModel, constr, validator
-from enum import auto
 
 
-class EntryType(Enum):
-    financial = "financial" 
+class EntryType(str, Enum):
+    financial = "financial"
     weight = "weight"
     calories = "calories"
 
